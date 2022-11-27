@@ -8,6 +8,7 @@
 constexpr bool isMovable(bool m, bool p);
 
 template <typename species_t, bool can_eat_meat, bool can_eat_plants>
+requires std::equality_comparable<species_t>
 class Organism;
 
 template <typename species_t>
@@ -45,6 +46,7 @@ encounter_series(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
 
 
 template <typename species_t, bool can_eat_meat, bool can_eat_plants>
+requires std::equality_comparable<species_t>
 class Organism {
 public:
 
