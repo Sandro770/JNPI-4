@@ -10,6 +10,7 @@ constexpr bool is_movable(bool eats_m, bool eats_p);
 constexpr bool same_species(typename species_t, bool eats_m, bool eats_p);
 
 template <typename species_t, bool can_eat_meat, bool can_eat_plants>
+requires std::equality_comparable<species_t>
 class Organism;
 
 template <typename species_t>
@@ -40,6 +41,7 @@ encounter_series(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1, Args... 
 ///-----------------------------------------------------------------------------------------------
 
 template <typename species_t, bool can_eat_meat, bool can_eat_plants>
+requires std::equality_comparable<species_t>
 class Organism {
 public:
   constexpr uint64_t get_vitality() const { return vitality; }
@@ -106,10 +108,28 @@ encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
 
 /// TODO: encounter_series
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename... Args>
+template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename T,
+          typename... Args>
+constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
+encounter_series_helper(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1, T organism2,
+                 Args... args) {
+                    if constexpr (sizeof...(args) > 0)
+                         return encounter_series_helper(std::get<0> (encounter(organism1, organism2)), args...);
+                    return std::get<0>(encounter(organism1, organism2));
+                 }
+
+template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
+          typename... Args>
 constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
 encounter_series(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1, Args... args) {
     return organism1;
 }
+encounter_series(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
+                 Args... args) {
+                    if constexpr (sizeof...(args) == 0)
+                         return organism1;
+                    return encounter_series_helper(organism1, args...);
+                 }
 
 constexpr bool is_movable(bool eats_m, bool eats_p) { return eats_m || eats_p; }
 
