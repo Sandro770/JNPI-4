@@ -81,13 +81,24 @@ requires(isMovable(sp1_eats_m, sp1_eats_p) ||
                                                                  return {organism1, organism2, {}};
                                                              }
 
+template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename T,
+          typename... Args>
+constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
+encounter_series_helper(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1, T organism2,
+                 Args... args) {
+                    if constexpr (sizeof...(args) > 0)
+                         return encounter_series_helper(std::get<0> (encounter(organism1, organism2)), args...);
+                    return std::get<0>(encounter(organism1, organism2));
+                 }
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
           typename... Args>
 constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
 encounter_series(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
                  Args... args) {
-                    return organism1;
+                    if constexpr (sizeof...(args) == 0)
+                         return organism1;
+                    return encounter_series_helper(organism1, args...);
                  }
 
 constexpr bool isMovable(bool m, bool p) { return m || p; }
