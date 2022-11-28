@@ -2,6 +2,7 @@
 #define ORGANISM_H
 
 #include <optional>
+#include <concepts>
 #include <cstdint>
 #include <tuple>
 
@@ -58,20 +59,16 @@ public:
         return {Organism<species_t, can_eat_meat, can_eat_plants>(species, vitality + food)};
     }
 
-    constexpr bool is_animal() const { 
-        return can_eat_meat || can_eat_plants; 
-    }
-
-    constexpr bool is_plant() const { 
-        return !is_animal(); 
-    }
-
     constexpr uint64_t get_vitality() const { 
         return vitality; 
     }
 
     constexpr species_t const &get_species() const { 
         return species; 
+    }
+
+    constexpr bool is_plant() const {
+        return !can_eat_meat && !can_eat_plants;
     }
 
     constexpr bool is_dead() const { 
@@ -83,9 +80,8 @@ private:
     uint64_t vitality;
 };
 
-namespace {
-constexpr int plant_energy_loss = 1;
-constexpr int animal_energy_loss = 2;
+constexpr uint64_t plant_energy_loss = 1;
+constexpr uint64_t animal_energy_loss = 2;
 
 constexpr auto no_effect(auto organism1, auto organism2) {
     return std::make_tuple(Organism(organism1), Organism(organism2), std::nullopt);
@@ -93,20 +89,17 @@ constexpr auto no_effect(auto organism1, auto organism2) {
 
 constexpr auto make_child(auto organism1, auto organism2) {
     auto species = organism1.get_species();
-    uint64_t vitality1 = organism1.get_vitality();
-    uint64_t vitality2 = organism2.get_vitality();
+    uint64_t vitality = (organism1.get_vitality() + organism2.get_vitality()) / (uint64_t)2;
 
-    decltype(organism1) child(species, (vitality1 + vitality2) / (uint64_t)2);
-
-    return std::make_tuple(Organism(organism1), Organism(organism2), child);
+    return std::make_tuple(Organism(organism1), Organism(organism2), decltype(organism1)(species, vitality));
 }
 
-constexpr auto first_eat_second(auto organism1, auto organism2, int energy_loss) {
+constexpr auto first_eat_second(auto organism1, auto organism2, uint64_t energy_loss) {
     return std::make_tuple(organism1.fed_with(organism2.get_vitality() / energy_loss),
                            organism2.dead(), std::nullopt);
 }
 
-constexpr auto second_eat_first(auto organism1, auto organism2, int energy_loss) {
+constexpr auto second_eat_first(auto organism1, auto organism2, uint64_t energy_loss) {
     return std::make_tuple(organism1.dead(), organism2.fed_with
                             (organism1.get_vitality() / energy_loss), std::nullopt);
 }
@@ -114,7 +107,17 @@ constexpr auto second_eat_first(auto organism1, auto organism2, int energy_loss)
 constexpr auto both_die(auto organism1, auto organism2) {
     return std::make_tuple(organism1.dead(), organism2.dead(), std::nullopt);
 }
-} // anonymous namespace
+
+template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename T, typename... Args>
+constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
+encounter_series_helper(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
+                        T organism2, Args... args) {
+    if constexpr (sizeof...(args) > 0) {
+        return encounter_series_helper(std::get<0> (encounter(organism1, organism2)), args...);
+    }
+
+    return std::get<0>(encounter(organism1, organism2));
+}
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
         bool sp2_eats_m, bool sp2_eats_p>
@@ -185,17 +188,6 @@ encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
 
     // Oba nie jedzą mięsa, brak efektu.
     return no_effect(organism1, organism2);
-}
-
-template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename T, typename... Args>
-constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
-encounter_series_helper(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
-                        T organism2, Args... args) {
-    if constexpr (sizeof...(args) > 0) {
-        return encounter_series_helper(std::get<0> (encounter(organism1, organism2)), args...);
-    }
-
-    return std::get<0>(encounter(organism1, organism2));
 }
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename... Args>
