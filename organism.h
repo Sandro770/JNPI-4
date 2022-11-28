@@ -5,11 +5,9 @@
 #include <cstdint>
 #include <tuple>
 
-// To pewnie nie powinno być definem, ale czym?
-#define plant_energy_loss 1
-#define animal_energy_loss 2
-
-constexpr bool is_movable(bool eats_m, bool eats_p) { return eats_m || eats_p; }
+constexpr bool is_movable(bool eats_m, bool eats_p) { 
+    return eats_m || eats_p; 
+}
 
 constexpr bool same_food_preferences(bool sp1_eats_m, bool sp1_eats_p,
                                      bool sp2_eats_m, bool sp2_eats_p) {
@@ -60,15 +58,25 @@ public:
         return {Organism<species_t, can_eat_meat, can_eat_plants>(species, vitality + food)};
     }
 
-    constexpr bool is_animal() { return can_eat_meat || can_eat_plants; }
+    constexpr bool is_animal() const { 
+        return can_eat_meat || can_eat_plants; 
+    }
 
-    constexpr bool is_plant() { return !is_animal(); }
+    constexpr bool is_plant() { 
+        return !is_animal(); 
+    }
 
-    constexpr uint64_t get_vitality() const { return vitality; }
+    constexpr uint64_t get_vitality() const { 
+        return vitality; 
+    }
 
-    constexpr species_t const &get_species() const { return species; }
+    constexpr species_t const &get_species() const { 
+        return species; 
+    }
 
-    constexpr bool is_dead() const { return vitality == 0; }
+    constexpr bool is_dead() const { 
+        return vitality == 0; 
+    }
 
 private: 
     species_t const &species;
@@ -76,6 +84,9 @@ private:
 };
 
 namespace {
+constexpr int plant_energy_loss = 1;
+constexpr int animal_energy_loss = 2;
+
 constexpr auto no_effect(auto organism1, auto organism2) {
     return std::make_tuple(Organism(organism1), Organism(organism2), std::nullopt);
 }
