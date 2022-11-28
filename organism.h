@@ -71,14 +71,18 @@ private:
     uint64_t vitality;
 };
 
-template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
-        bool sp2_eats_m, bool sp2_eats_p>
-constexpr std::tuple<Organism<species_t, sp1_eats_m, sp1_eats_p>,
-        Organism<species_t, sp2_eats_m, sp2_eats_p>,
-        std::optional<Organism<species_t, sp1_eats_m, sp1_eats_p>>>
-no_effect(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
-          Organism<species_t, sp2_eats_m, sp2_eats_p> organism2) {
+constexpr auto no_effect(auto organism1, auto organism2) {
     return std::make_tuple(Organism(organism1), Organism(organism2), std::nullopt);
+}
+
+constexpr auto make_child(auto organism1, auto organism2) {
+    auto species = organism1.get_species();
+    uint64_t vitality1 = organism1.get_vitality();
+    uint64_t vitality2 = organism2.get_vitality();
+
+    decltype(organism1) child(species, (vitality1 + vitality2) / (uint64_t)2);
+
+    return std::make_tuple(Organism(organism1), Organism(organism2), child);
 }
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
@@ -100,12 +104,7 @@ encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
     // Spotkanie dwóch zwierząt tego samego gatunku prowadzi do godów.
     if ((organism1.get_species() == organism2.get_species()) &&
     same_food_preferences(sp1_eats_m, sp1_eats_p, sp2_eats_m, sp2_eats_p)) {
-        auto species = organism1.get_species();
-        int vitality1 = organism1.get_vitality();
-        int vitality2 = organism2.get_vitality();
-
-        return std::make_tuple(Organism(organism1), Organism(organism2),
-                Organism<species_t, sp1_eats_m, sp1_eats_p>(species, vitality1 + vitality2 / 2));
+        return make_child(organism1, organism2); 
     }
 
     // Dokładnie jeden jest rośliną, drugi może go zjeść lub nie.
