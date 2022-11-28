@@ -7,7 +7,8 @@
 
 constexpr bool is_movable(bool eats_m, bool eats_p);
 
-constexpr bool same_species(typename species_t, bool eats_m, bool eats_p);
+constexpr bool same_food_preferences(bool sp1_eats_m, bool sp1_eats_p,
+                                     bool sp2_eats_m, bool sp2_eats_p);
 
 template <typename species_t, bool can_eat_meat, bool can_eat_plants>
 requires std::equality_comparable<species_t>
@@ -27,7 +28,7 @@ using Plant = Organism<species_t, false, false>;
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
         bool sp2_eats_m, bool sp2_eats_p>
-requires(isMovable(sp1_eats_m, sp1_eats_p) || isMovable(sp2_eats_m, sp2_eats_p))
+requires(is_movable(sp1_eats_m, sp1_eats_p) || is_movable(sp2_eats_m, sp2_eats_p))
 constexpr std::tuple<Organism<species_t, sp1_eats_m, sp1_eats_p>,
           Organism<species_t, sp2_eats_m, sp2_eats_p>,
           std::optional<Organism<species_t, sp1_eats_m, sp1_eats_p>>>
@@ -44,104 +45,154 @@ template <typename species_t, bool can_eat_meat, bool can_eat_plants>
 requires std::equality_comparable<species_t>
 class Organism {
 public:
-  constexpr uint64_t get_vitality() const { return vitality; }
+    constexpr Organism(species_t const &species, uint64_t vitality) :
+            species(species), vitality(vitality) { }
 
-  constexpr species_t const &get_species() const { 
-     return species; }
+    constexpr Organism<species_t, can_eat_meat, can_eat_plants> dead() {
+        return {Organism<species_t, can_eat_meat, can_eat_plants>(species, 0)};
+    }
 
-  constexpr Organism(species_t const &species, uint64_t vitality) :
-  species(species), vitality(vitality) { }
+    constexpr Organism<species_t, can_eat_meat, can_eat_plants> fed_with(uint64_t food) {
+        return {Organism<species_t, can_eat_meat, can_eat_plants>(species, vitality + food)};
+    }
 
-  constexpr bool is_dead() const { return vitality == 0; }
+    constexpr bool is_animal() { return can_eat_meat || can_eat_plants; }
+
+    constexpr bool is_plant() { return !is_animal(); }
+
+    constexpr uint64_t get_vitality() const { return vitality; }
+
+    constexpr species_t const &get_species() const {
+        return species;
+    }
+
+    constexpr bool is_dead() const { return vitality == 0; }
 
 private: 
-  species_t const &species;
-  uint64_t vitality;
+    species_t const &species;
+    uint64_t vitality;
 };
 
-/// TODO: encounter
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
         bool sp2_eats_m, bool sp2_eats_p>
-// 2. Nie jest możliwe spotkanie dwóch roślin,
+constexpr std::tuple<Organism<species_t, sp1_eats_m, sp1_eats_p>,
+        Organism<species_t, sp2_eats_m, sp2_eats_p>,
+        std::optional<Organism<species_t, sp1_eats_m, sp1_eats_p>>>
+no_effect(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
+          Organism<species_t, sp2_eats_m, sp2_eats_p> organism2) {
+    return std::make_tuple(Organism(organism1), Organism(organism2), std::nullopt);
+}
+
+template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
+        bool sp2_eats_m, bool sp2_eats_p>
+// Możliwe jest spotkanie jedynie organizmów, których typ gatunku (species_t) jest taki sam
+// Nie jest możliwe spotkanie dwóch roślin,
 requires(is_movable(sp1_eats_m, sp1_eats_p) || is_movable(sp2_eats_m, sp2_eats_p))
 constexpr std::tuple<Organism<species_t, sp1_eats_m, sp1_eats_p>,
         Organism<species_t, sp2_eats_m, sp2_eats_p>,
         std::optional<Organism<species_t, sp1_eats_m, sp1_eats_p>>>
 encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
           Organism<species_t, sp2_eats_m, sp2_eats_p> organism2) {
-    // 1. Możliwe jest spotkanie jedynie organizmów, których typ gatunku (species_t) jest taki sam
-    static_assert(typeof(organism1.get_species() == typeof(organism2.get_species(),
-            "Species type must be the same in order for organisms to meet.");
 
-    // 3. Spotkanie, w którym jedna ze stron jest martwa, nie powoduje skutków.
-    if ((organism1.get_vitality() == 0) || (organism2.get_Vitality() == 0)) {
-        return {Organism(organism1.get_species(), organism1.get_vitality()),
-                Organism(organism2.get_species(), organism2.get_vitality())};
+    // Spotkanie, w którym jedna ze stron jest martwa, nie powoduje skutków.
+    if ((organism1.get_vitality() == 0) || (organism2.get_vitality() == 0)) {
+        return no_effect(organism1, organism2);
     }
 
-    // 4. Spotkanie dwóch zwierząt tego samego gatunku prowadzi do godów.
-    if (same_species(organism1,get_species(), sp1_eats_m, sp1_eats_p,
-                     organism2.get_species(), sp2_eats_m, sp2_eats_p))) {
+    // Spotkanie dwóch zwierząt tego samego gatunku prowadzi do godów.
+    if ((organism1.get_species() == organism2.get_species()) &&
+    same_food_preferences(sp1_eats_m, sp1_eats_p, sp2_eats_m, sp2_eats_p)) {
         auto species = organism1.get_species();
         int vitality1 = organism1.get_vitality();
         int vitality2 = organism2.get_vitality();
 
-        return {Organism(organism1.get_species(), vitality1,
-                Organism(organism2.get_species(), vitality2),
-                Organism(species, ((vitality1 + vitality2) / 2))};
+        return std::make_tuple(Organism(organism1), Organism(organism2),
+                Organism<species_t, sp1_eats_m, sp1_eats_p>(species, vitality1 + vitality2 / 2));
     }
 
-    // 5. Spotkanie organizmów, które nie potrafią się zjadać, nie przynosi efektów.
+    // Dokładnie jeden jest rośliną
+    if (organism1.is_plant() || organism2.is_plant()) {
+        if (sp1_eats_p) {
+            return std::make_tuple
+            (organism1.fed_with(organism2.get_vitality()), organism2.dead(), std::nullopt);
+        }
+        else if (sp2_eats_p) {
+            return std::make_tuple
+            (organism1.dead(), organism2.fed_with(organism1.get_vitality()), std::nullopt);
+        }
+        else {
+            return no_effect(organism1, organism2);
+        }
+    }
 
-    // 6. Spotkanie dwóch zwierząt, które potrafią się nawzajem zjadać, prowadzi do walki
+    // Od tego momentu oba organizmy to zwierzęta.
 
-    // 7. Spotkanie roślinożercy lub wszystkożercy z rośliną skutkuje tym, że roślina zostaje zjedzona.
+    // Oba mięsożerne, walka.
+    if (sp1_eats_m && sp2_eats_m) {
+        if (organism1.get_vitality() > organism2.get_vitality()) {
+            return std::make_tuple
+            (organism1.fed_with(organism2.get_vitality() / 2), organism2.dead(), std::nullopt);
+        }
+        else if (organism1.get_vitality() < organism2.get_vitality()) {
+            return std::make_tuple
+            (organism1.dead(), organism2.fed_with(organism1.get_vitality() / 2), std::nullopt);
+        }
+        else {
+            return std::make_tuple(organism1.dead(), organism2.dead(), std::nullopt);
+        }
+    }
 
-    // 8. Przy spotkaniu, w którym zdolność do konsumpcji zachodzi tylko w jedną stronę, rozpatrujemy dwa przypadki.
-    // Jeśli „potencjalnie zjadany" ma witalność nie mniejszą niż „potencjalnie zjadający", to nic się nie dzieje
+    // Dokładnie jeden mięsożerny, zjada lub nie drugiego.
+    if (sp1_eats_m) {
+        if (organism1.get_vitality() <= organism2.get_vitality()) {
+            return no_effect(organism1, organism2);
+        }
+        else {
+            return std::make_tuple
+            (organism1.fed_with(organism2.get_vitality() / 2), organism2.dead(), std::nullopt);
+        }
+    }
 
-    // W przeciwnym przypadku zjadający dodaje do swojej witalności połowę (zaokrągloną w dół) witalności zjedzonego, a zjedzony ginie.
+    if (sp2_eats_m) {
+        if (organism1.get_vitality() >= organism2.get_vitality()) {
+            return no_effect(organism1, organism2);
+        }
+        else {
+            return std::make_tuple
+            (organism1.dead(), organism2.fed_with(organism1.get_vitality() / 2), std::nullopt);
+        }
+    }
 
-
-    return {organism1, organism2, {}};
+    // Oba nie jedzą mięsa, brak efektu.
+    return no_effect(organism1, organism2);
 }
 
-/// TODO: encounter_series
-template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename... Args>
-template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename T,
-          typename... Args>
+template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename T, typename... Args>
 constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
-encounter_series_helper(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1, T organism2,
-                 Args... args) {
-                    if constexpr (sizeof...(args) > 0)
-                         return encounter_series_helper(std::get<0> (encounter(organism1, organism2)), args...);
-                    return std::get<0>(encounter(organism1, organism2));
-                 }
+encounter_series_helper(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
+                        T organism2, Args... args) {
+    if constexpr (sizeof...(args) > 0) {
+        return encounter_series_helper(std::get<0> (encounter(organism1, organism2)), args...);
+    }
 
-template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
-          typename... Args>
+    return std::get<0>(encounter(organism1, organism2));
+}
+
+template <typename species_t, bool sp1_eats_m, bool sp1_eats_p, typename... Args>
 constexpr Organism<species_t, sp1_eats_m, sp1_eats_p>
 encounter_series(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1, Args... args) {
-    return organism1;
+    if constexpr (sizeof...(args) == 0) {
+        return organism1;
+    }
+
+    return encounter_series_helper(organism1, args...);
 }
-encounter_series(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
-                 Args... args) {
-                    if constexpr (sizeof...(args) == 0)
-                         return organism1;
-                    return encounter_series_helper(organism1, args...);
-                 }
 
 constexpr bool is_movable(bool eats_m, bool eats_p) { return eats_m || eats_p; }
 
-constexpr bool same_species(typename sp1_species, bool sp1_eats_m, bool sp1_eats_p,
-                            typename sp2_species, bool sp2_eats_m, bool sp2_eats_p) {
-    return ((sp1_species == sp2_species) && (sp1_eats_m == sp2_eats_m)
-    && (sp1_eats_p == sp2_eats_p));
+constexpr bool same_food_preferences(bool sp1_eats_m, bool sp1_eats_p,
+                                     bool sp2_eats_m, bool sp2_eats_p) {
+    return ((sp1_eats_m == sp2_eats_m) && (sp1_eats_p == sp2_eats_p));
 }
 
-// Carnivore – mięsożerca,
-// Omnivore – wszystkożerca,
-// Herbivore – roślinożerca,
-// Plant – roślina, nie potrafi jeść ani mięsa, ani roślin.
-
-#endif
+#endif // ORGANISM_H
