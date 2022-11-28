@@ -71,6 +71,7 @@ private:
     uint64_t vitality;
 };
 
+namespace {
 constexpr auto no_effect(auto organism1, auto organism2) {
     return std::make_tuple(Organism(organism1), Organism(organism2), std::nullopt);
 }
@@ -84,6 +85,7 @@ constexpr auto make_child(auto organism1, auto organism2) {
 
     return std::make_tuple(Organism(organism1), Organism(organism2), child);
 }
+} // anonymous namespace
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
         bool sp2_eats_m, bool sp2_eats_p>
