@@ -62,7 +62,7 @@ public:
         return can_eat_meat || can_eat_plants; 
     }
 
-    constexpr bool is_plant() { 
+    constexpr bool is_plant() const { 
         return !is_animal(); 
     }
 
