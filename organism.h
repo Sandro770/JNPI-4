@@ -89,7 +89,6 @@ constexpr auto make_child(auto organism1, auto organism2) {
 
     return std::make_tuple(Organism(organism1), Organism(organism2), child);
 }
-} // anonymous namespace
 
 constexpr auto first_eat_second(auto organism1, auto organism2, int energy_loss) {
     return std::make_tuple(organism1.fed_with(organism2.get_vitality() / energy_loss),
@@ -104,6 +103,7 @@ constexpr auto second_eat_first(auto organism1, auto organism2, int energy_loss)
 constexpr auto both_die(auto organism1, auto organism2) {
     return std::make_tuple(organism1.dead(), organism2.dead(), std::nullopt);
 }
+} // anonymous namespace
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
         bool sp2_eats_m, bool sp2_eats_p>
