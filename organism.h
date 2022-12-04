@@ -5,6 +5,7 @@
 #include <concepts>
 #include <cstdint>
 #include <tuple>
+#include <limits>
 
 constexpr bool is_movable(bool eats_m, bool eats_p) { 
     return eats_m || eats_p; 
@@ -48,6 +49,7 @@ template <typename species_t, bool can_eat_meat, bool can_eat_plants>
 requires std::equality_comparable<species_t>
 class Organism {
 public:
+    static constexpr uint64_t MAX_VITALITY = std::numeric_limits<uint64_t>::max();
     constexpr Organism(species_t const &species, uint64_t vitality) :
             species(species), vitality(vitality) { }
 
@@ -56,7 +58,10 @@ public:
     }
 
     constexpr Organism<species_t, can_eat_meat, can_eat_plants> fed_with(uint64_t food) {
-        return {Organism<species_t, can_eat_meat, can_eat_plants>(species, vitality + food)};
+        uint64_t new_vitality = MAX_VITALITY;
+        if (vitality <= MAX_VITALITY - food)
+            new_vitality = vitality + food;
+        return {Organism<species_t, can_eat_meat, can_eat_plants>(species, new_vitality)};
     }
 
     constexpr uint64_t get_vitality() const { 
@@ -89,9 +94,13 @@ constexpr auto no_effect(auto organism1, auto organism2) {
 
 constexpr auto make_child(auto organism1, auto organism2) {
     auto species = organism1.get_species();
-    uint64_t vitality = (organism1.get_vitality() + organism2.get_vitality()) / (uint64_t)2;
+    __uint128_t vitality = ((__uint128_t)organism1.get_vitality() +
+                            (__uint128_t)organism2.get_vitality()) /
+                           (__uint128_t)2;
+    vitality = std::min(vitality, (__uint128_t)decltype(organism1)::MAX_VITALITY);
 
-    return std::make_tuple(Organism(organism1), Organism(organism2), decltype(organism1)(species, vitality));
+    return std::make_tuple(Organism(organism1), Organism(organism2),
+                           decltype(organism1)(species, vitality));
 }
 
 constexpr auto first_eat_second(auto organism1, auto organism2, uint64_t energy_loss) {
@@ -121,26 +130,25 @@ encounter_series_helper(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
 
 template <typename species_t, bool sp1_eats_m, bool sp1_eats_p,
         bool sp2_eats_m, bool sp2_eats_p>
-// Możliwe jest spotkanie jedynie organizmów, których typ gatunku (species_t) jest taki sam
-// Nie jest możliwe spotkanie dwóch roślin,
+// It's only possible to encounter organisms with the same species type (species_t)
+// It's impossible to happen an encounter of 2 plants,
 requires(is_movable(sp1_eats_m, sp1_eats_p) || is_movable(sp2_eats_m, sp2_eats_p))
 constexpr std::tuple<Organism<species_t, sp1_eats_m, sp1_eats_p>,
         Organism<species_t, sp2_eats_m, sp2_eats_p>,
         std::optional<Organism<species_t, sp1_eats_m, sp1_eats_p>>>
 encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
           Organism<species_t, sp2_eats_m, sp2_eats_p> organism2) {
-    // Spotkanie, w którym jedna ze stron jest martwa, nie powoduje skutków.
     if ((organism1.is_dead()) || (organism2.is_dead())) {
         return no_effect(organism1, organism2);
     }
 
-    // Spotkanie dwóch zwierząt tego samego gatunku prowadzi do godów.
+    // Encounter of two same species animals, leads to mating.
     if ((organism1.get_species() == organism2.get_species()) &&
     same_food_preferences(sp1_eats_m, sp1_eats_p, sp2_eats_m, sp2_eats_p)) {
         return make_child(organism1, organism2); 
     }
 
-    // Dokładnie jeden jest rośliną, drugi może go zjeść lub nie.
+    // Exactly one organism is a plant, the other organisms perhaps may eat it.
     if (organism1.is_plant() || organism2.is_plant()) {
         if (sp1_eats_p) {
             return first_eat_second(organism1, organism2, plant_energy_loss);
@@ -153,8 +161,8 @@ encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
         }
     }
 
-    // Od tego momentu oba organizmy to zwierzęta.
-    // Oba są mięsożerne, więc walczą.
+    // From this moment, both organisms are animals.
+    // In this case, both are carnivore animals, so they fight.
     if (sp1_eats_m && sp2_eats_m) {
         if (organism1.get_vitality() > organism2.get_vitality()) {
             return first_eat_second(organism1, organism2, animal_energy_loss);
@@ -167,7 +175,7 @@ encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
         }
     }
 
-    // Dokładnie jeden jest mięsożerny, sprawdzamy czy może zjeść drugiego.
+    // Exactly one is carnivore, check if it can eat the other one.
     if (sp1_eats_m) {
         if (organism1.get_vitality() <= organism2.get_vitality()) {
             return no_effect(organism1, organism2);
@@ -186,7 +194,7 @@ encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
         }
     }
 
-    // Oba nie jedzą mięsa, brak efektu.
+    // Both don't eat meat.
     return no_effect(organism1, organism2);
 }
 
