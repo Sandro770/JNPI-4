@@ -64,6 +64,15 @@ public:
         return {Organism<species_t, can_eat_meat, can_eat_plants>(species, new_vitality)};
     }
 
+    constexpr Organism<species_t, can_eat_meat, can_eat_plants> child(uint64_t second_vitality) {
+        __uint128_t new_vitality =
+                ((__uint128_t)vitality + (__uint128_t)second_vitality) / (__uint128_t)2;
+
+        new_vitality = std::min(new_vitality, (__uint128_t)MAX_VITALITY);
+
+        return {Organism<species_t, can_eat_meat, can_eat_plants>(species, new_vitality)};
+    }
+
     constexpr uint64_t get_vitality() const { 
         return vitality; 
     }
@@ -93,14 +102,9 @@ constexpr auto no_effect(auto organism1, auto organism2) {
 }
 
 constexpr auto make_child(auto organism1, auto organism2) {
-    auto species = organism1.get_species();
-    __uint128_t vitality = ((__uint128_t)organism1.get_vitality() +
-                            (__uint128_t)organism2.get_vitality()) /
-                           (__uint128_t)2;
-    vitality = std::min(vitality, (__uint128_t)decltype(organism1)::MAX_VITALITY);
+    auto child = organism1.child(organism2.get_vitality());
 
-    return std::make_tuple(Organism(organism1), Organism(organism2),
-                           decltype(organism1)(species, vitality));
+    return std::make_tuple(Organism(organism1), Organism(organism2), child);
 }
 
 constexpr auto first_eat_second(auto organism1, auto organism2, uint64_t energy_loss) {
@@ -145,7 +149,7 @@ encounter(Organism<species_t, sp1_eats_m, sp1_eats_p> organism1,
     // Encounter of two same species animals, leads to mating.
     if ((organism1.get_species() == organism2.get_species()) &&
     same_food_preferences(sp1_eats_m, sp1_eats_p, sp2_eats_m, sp2_eats_p)) {
-        return make_child(organism1, organism2); 
+        return make_child(organism1, organism2);
     }
 
     // Exactly one organism is a plant, the other organisms perhaps may eat it.
